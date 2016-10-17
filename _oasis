@@ -18,7 +18,7 @@ Library networklibs
   CompiledObject:     best
   Path:               lib
   Findlibname:        network-libs
-  Modules:            Network_config, Network_utils, Jsonrpc_client
+  Modules:            Network_config, Network_utils, Jsonrpc_client, Semaphore
   BuildDepends:       
     forkexec,
     stdext,
