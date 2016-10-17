@@ -706,8 +706,11 @@ end
 module Ovs = struct
 
 	module Cli = struct
+	let m = Mutex.create ()
 	let vsctl ?(log=false) args =
-		call_script ~log_successful_output:log ovs_vsctl ("--timeout=20" :: args)
+		Threadext.Mutex.execute m (fun () -> 
+			call_script ~log_successful_output:log ovs_vsctl ("--timeout=20" :: args) 
+		)
 	let ofctl ?(log=false) args =
 		call_script ~log_successful_output:log ovs_ofctl args
 	let appctl ?(log=false) args =
