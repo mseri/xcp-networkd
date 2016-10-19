@@ -26,6 +26,7 @@ let create n =
     error "Invalid semaphore count: %d" n;
     failwith "Negative count on semaphore creation"
   end;
+  debug "Creating semaphore with count %d" n; 
   let m = Mutex.create ()
   and c = Condition.create () in
   { n; m; c; }
@@ -39,12 +40,14 @@ let acquire k s =
     error "Invalid semaphore count (%d) after acquisition for (%d)" s.n k;
     failwith "Invalid semaphore count"
   end;
+  debug "Decrementing semaphore (count %d) by %d" s.n k;
   s.n <- s.n - k;
   Condition.signal s.c;
   Mutex.unlock s.m
 
 let release k s =
   Mutex.lock s.m;
+  debug "Incrementing semaphore (count %d) by %d" s.n k;
   s.n <- s.n + k;
   Condition.signal s.c;
   Mutex.unlock s.m
@@ -52,6 +55,7 @@ let release k s =
 let execute_with_weight s k f =
   acquire k s;
   try
+    debug "Running f in the semaphore";
     let x = f () in
     release k s;
     x
