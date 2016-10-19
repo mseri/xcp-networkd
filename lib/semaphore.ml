@@ -22,8 +22,10 @@ type semaphore = {
 }
 
 let create n =
-  if n <= 0 then
+  if n <= 0 then begin
     error "Invalid semaphore count: %d" n;
+    failwith "Negative count on semaphore creation"
+  end;
   let m = Mutex.create ()
   and c = Condition.create () in
   { n; m; c; }
