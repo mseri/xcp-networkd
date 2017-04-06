@@ -101,39 +101,52 @@ let get_link_stats () =
 	let s = Socket.alloc () in
 	Socket.connect s Socket.NETLINK_ROUTE;
 
-	let cache = Link.cache_alloc s in
-	let links = Link.cache_to_list cache in
-	let links =
+	let devs_from_link cache = 
 		let is_whitelisted name =
 			List.exists (fun s -> String.startswith s name) !monitor_whitelist
 		in
 		let is_vlan name =
 			String.startswith "eth" name && String.contains name '.'
 		in
-		List.map (fun link ->
-			(standardise_name (Link.get_name link)), link
-		) links |>
-		(* Only keep interfaces with prefixes on the whitelist, and exclude VLAN
-		   devices (ethx.y). *)
-		List.filter (fun (name, _) ->
-			is_whitelisted name && not (is_vlan name)
-		)
+		let links = 
+			Link.cache_to_list cache 
+			|> List.map (fun link ->
+				(standardise_name (Link.get_name link)), link
+				) links
+			(* Only keep interfaces with prefixes on the whitelist, and exclude 
+			VLAN devices (ethx.y). *)
+			|> List.filter (fun (name, _) ->
+				is_whitelisted name && not (is_vlan name)
+				)
+		in
+		List.map (fun (name,link) ->
+			let convert x = Int64.of_int (Unsigned.UInt64.to_int x) in
+			let eth_stat = {default_stats with
+				rx_bytes = Link.get_stat link Link.RX_BYTES |> convert;
+				rx_pkts = Link.get_stat link Link.RX_PACKETS |> convert;
+				rx_errors = Link.get_stat link Link.RX_ERRORS |> convert;
+				tx_bytes = Link.get_stat link Link.TX_BYTES |> convert;
+				tx_pkts = Link.get_stat link Link.TX_PACKETS |> convert;
+				tx_errors = Link.get_stat link Link.TX_ERRORS |> convert;
+			} in
+			name, eth_stat
+		) links
+	in
+	let devs =
+		try
+			let cache = Link.cache_alloc s in
+			let devs = devs_from_link cache in
+			Cache.free cache;
+			devs
+		(* CA-CA-246770: this happens if cache_alloc (calling libnl) is 
+		* unable to fill the cache. In this case we do not have performance 
+		* informations to return *)
+		with
+			Link.AllocCacheError ->
+				info "rtnl_link_alloc_cache: unable to allocate cache"; 
+				[]
 	in
 
-	let devs = List.map (fun (name,link) ->
-		let convert x = Int64.of_int (Unsigned.UInt64.to_int x) in
-		let eth_stat = {default_stats with
-			rx_bytes = Link.get_stat link Link.RX_BYTES |> convert;
-			rx_pkts = Link.get_stat link Link.RX_PACKETS |> convert;
-			rx_errors = Link.get_stat link Link.RX_ERRORS |> convert;
-			tx_bytes = Link.get_stat link Link.TX_BYTES |> convert;
-			tx_pkts = Link.get_stat link Link.TX_PACKETS |> convert;
-			tx_errors = Link.get_stat link Link.TX_ERRORS |> convert;
-		} in
-		name, eth_stat
-	) links in
-
-	Cache.free cache;
 	Socket.close s;
 	Socket.free s;
 	devs
