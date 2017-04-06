@@ -112,7 +112,7 @@ let get_link_stats () =
 			Link.cache_to_list cache 
 			|> List.map (fun link ->
 				(standardise_name (Link.get_name link)), link
-				) links
+				)
 			(* Only keep interfaces with prefixes on the whitelist, and exclude 
 			VLAN devices (ethx.y). *)
 			|> List.filter (fun (name, _) ->
